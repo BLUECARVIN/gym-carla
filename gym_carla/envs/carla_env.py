@@ -51,6 +51,12 @@ class CarlaEnv(gym.Env):
     else:
       self.pixor = False
 
+    # Terminal condition
+    if 'terminal_condition' in params:
+      self.terminal_condition = params['terminal_condition']
+    else:
+      self.terminal_condition = 'all'
+
     # Destination
     if params['task_mode'] == 'roundabout':
       self.dests = [[4.46, -61.46, 0], [-49.53, -2.89, 0], [-6.48, 55.47, 0], [35.96, 3.33, 0]]
@@ -229,6 +235,7 @@ class CarlaEnv(gym.Env):
       self.lidar_data = data
 
     # Add camera sensor
+
     self.camera_sensor = self.world.spawn_actor(self.camera_bp, self.camera_trans, attach_to=self.ego)
     self.camera_sensor.listen(lambda data: get_camera_img(data))
     def get_camera_img(data):
@@ -633,28 +640,61 @@ class CarlaEnv(gym.Env):
 
     return r
 
+  # def _terminal(self):
+  #   """Calculate whether to terminate the current episode."""
+  #   # Get ego state
+  #   ego_x, ego_y = get_pos(self.ego)
+
+  #   # If collides
+  #   if len(self.collision_hist)>0: 
+  #     return True
+
+  #   # If reach maximum timestep
+  #   if self.time_step>self.max_time_episode:
+  #     return True
+
+  #   # If at destination
+  #   if self.dests is not None: # If at destination
+  #     for dest in self.dests:
+  #       if np.sqrt((ego_x-dest[0])**2+(ego_y-dest[1])**2)<4:
+  #         return True
+
+  #   # If out of lane
+  #   dis, _ = get_lane_dis(self.waypoints, ego_x, ego_y)
+  #   if abs(dis) > self.out_lane_thres:
+  #     return True
+
+  #   return False
+
   def _terminal(self):
-    """Calculate whether to terminate the current episode."""
-    # Get ego state
+    """ 
+    Calculate whether to terminate the current episode with own condition
+    Add the terminal condition into 'terminal_condition' parameters:
+      Collision: if Collision happen
+      Step: maximum step
+      Destination: if ego reach the destination
+      Distence: if ego is out of lane
+    """
+    # get ego state
     ego_x, ego_y = get_pos(self.ego)
 
     # If collides
-    if len(self.collision_hist)>0: 
+    if len(self.collision_hist)>0 and ('Collision' in self.terminal_condition or self.terminal_condition == 'all'): 
       return True
 
     # If reach maximum timestep
-    if self.time_step>self.max_time_episode:
+    if self.time_step>self.max_time_episode and ('Step' in self.terminal_condition or self.terminal_condition == 'all'):
       return True
 
     # If at destination
-    if self.dests is not None: # If at destination
+    if self.dests is not None and ('Destination' in self.terminal_condition or self.terminal_condition == 'all'): # If at destination
       for dest in self.dests:
         if np.sqrt((ego_x-dest[0])**2+(ego_y-dest[1])**2)<4:
           return True
 
     # If out of lane
     dis, _ = get_lane_dis(self.waypoints, ego_x, ego_y)
-    if abs(dis) > self.out_lane_thres:
+    if abs(dis) > self.out_lane_thres and ('Distence' in self.terminal_condition or self.terminal_condition == 'all'):
       return True
 
     return False
